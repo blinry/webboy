@@ -1,0 +1,71 @@
+#!/usr/bin/ruby
+# encoding: utf-8
+
+require "fileutils"
+require "rubygems"
+require "kramdown"
+require "trollop"
+
+def escape page_name
+    page_name.gsub(/ /, "-").tr("A-ZÄÖÜ", "a-zäöü")
+end
+
+opts = Trollop::options do
+    opt :template, "HTML template to use", :short => "t", :default => "/home/seb/projects/webboy/template.html"
+    opt :output, "Directory for output", :short => "o", :default => "/tmp/webboy/"
+    opt :static, "Static files to copy into output dir", :short => "s", :type => :string
+    opt :mainpage, "Which page should show up in root?", :short => "m", :default => "Welcome"
+end
+
+if ARGV.size < 1
+    puts "webboy: Required argument: wiki directory"
+    exit 1
+end
+
+wiki_dir = ARGV[0]+"/"
+target_dir = opts[:output]+"/"
+skeleton_dir = opts[:static]
+template_file = opts[:template]
+mainpage = opts[:mainpage]
+
+FileUtils.rm_r target_dir if File.exists? target_dir
+if skeleton_dir
+    FileUtils.cp_r skeleton_dir+"/", target_dir
+else
+    FileUtils.mkdir target_dir
+end
+
+FileUtils.ln_s(escape(mainpage)+"/index.html", target_dir+"index.html")
+
+page_names = Dir.entries(wiki_dir).reject{|entry| entry =~ /^\./}
+
+page_names.each do |page_name|
+    puts target_filename = target_dir+escape(page_name)+"/index.html"
+    source_filename = wiki_dir+page_name
+    Dir.mkdir(target_dir+escape(page_name))
+    template = IO.read(template_file)
+    open(target_filename, "w") do |file|
+        content = IO.read(source_filename)
+        content.gsub!(/\[[^\]]*\]/) do |link|
+            page = link[1..-2]
+            if page_names.include? page
+                "#{link}(/#{escape(page)}/)"
+            else
+                link
+            end
+        end
+
+        # auto-link links
+        content.gsub!(/(https?:\/\/[^\s]+)/, '<\1>')
+        # in very clear cases, let newlines become <br /> tags
+        content.gsub!(/^[\w\<][^\n]*\n+/) do |x|
+            x =~ /\n{2}/ ? x : (x.strip!; x << " \n")
+        end
+        content = Kramdown::Document.new(content).to_html
+
+        template.sub!(/CONTENT/, content)
+        template.gsub!(/TITLE/, page_name)
+        template.gsub!(/MTIME/, `git log -1 --format="%cd" --date=short -- #{source_filename}`)
+        file.write template
+    end
+end
