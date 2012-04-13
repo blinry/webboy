@@ -44,8 +44,20 @@ page_names.each do |page_name|
     source_filename = wiki_dir+page_name
     Dir.mkdir(target_dir+escape(page_name))
     template = IO.read(template_file)
+
+    log = `git log c97d9481ab64^.. --pretty=format:'### %s <small><a href="#%h" name="%h">%ad</a></small>%n%b' --date=short`
+
     open(target_filename, "w") do |file|
         content = IO.read(source_filename)
+
+        # auto-link links
+        content.gsub!(/([^(])(https?:\/\/[^\s]+)/, '\1<\2>')
+        # in very clear cases, let newlines become <br /> tags
+        content.gsub!(/^[\w\<][^\n]*\n+/) do |x|
+            x =~ /\n{2}/ ? x : (x.strip!; x << " \n")
+        end
+        content.sub!(/LOG/, log)
+
         content.gsub!(/\[[^\]]*\]/) do |link|
             page = link[1..-2]
             if page_names.include? page
@@ -55,17 +67,11 @@ page_names.each do |page_name|
             end
         end
 
-        # auto-link links
-        content.gsub!(/(https?:\/\/[^\s]+)/, '<\1>')
-        # in very clear cases, let newlines become <br /> tags
-        content.gsub!(/^[\w\<][^\n]*\n+/) do |x|
-            x =~ /\n{2}/ ? x : (x.strip!; x << " \n")
-        end
         content = Kramdown::Document.new(content).to_html
 
         template.sub!(/CONTENT/, content)
         template.gsub!(/TITLE/, page_name)
-        template.gsub!(/MTIME/, `git log -1 --format="%cd" --date=short -- #{source_filename}`)
+        template.gsub!(/MTIME/, `git log -1 --format="%cd" --date=short -- "#{source_filename}"`)
         file.write template
     end
 end
