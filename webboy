@@ -1,5 +1,4 @@
 #!/usr/bin/ruby
-# encoding: utf-8
 
 require "fileutils"
 require "rubygems"
@@ -64,7 +63,6 @@ page_names.each do |page_name|
         content.gsub!(/^[\w\<][^\n]*\n+/) do |x|
             x =~ /\n{2}/ ? x : (x.strip!; x << " \n")
         end
-
 
         content.sub!(/LOG/, log)
 
