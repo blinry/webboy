@@ -1,7 +1,6 @@
 #!/usr/bin/ruby
 
 require "fileutils"
-require "rubygems"
 require "kramdown"
 require "trollop"
 
@@ -12,23 +11,23 @@ end
 
 # Le option parser
 opts = Trollop::options do
-    opt :template, "HTML template to use", :short => "t", :default => "/home/seb/projects/webboy/template.html"
-    opt :output, "Directory for output", :short => "o", :default => "/tmp/webboy/"
+    version "webboy 0"
+    banner <<-EOS
+Options:
+    EOS
+    opt :input, "Directory containing the wiki pages", :short => "i", :type => :string
+    opt :output, "Output directory", :short => "o", :type => :string
+    opt :template, "HTML template to use", :short => "t", :default => File.dirname(__FILE__)+"/template.html"
     opt :static, "Static files to copy into output dir", :short => "s", :type => :string
-    opt :mainpage, "Which page should show up in root?", :short => "m", :default => "Welcome"
+    opt :main, "Name of the starting page", :short => "m", :type => :string
 end
 
-# One main argument is required
-if ARGV.size < 1
-    puts "webboy: Required argument: wiki directory"
-    exit 1
-end
-
-wiki_dir = ARGV[0]+"/"
+wiki_dir = opts[:input]+"/"
 target_dir = opts[:output]+"/"
 skeleton_dir = opts[:static]
 template_file = opts[:template]
-mainpage = opts[:mainpage]
+mainpage = opts[:main]
+autolinks = true
 
 # Recreate target directory, as all files are recreated nevertheless
 FileUtils.rm_r target_dir if File.exists? target_dir
@@ -42,7 +41,7 @@ end
 FileUtils.ln_s(escape(mainpage)+"/index.html", target_dir+"index.html")
 
 # Collect the titles of the pages
-page_names = Dir.entries(wiki_dir).reject{|entry| entry =~ /^\./}
+page_names = Dir.entries(wiki_dir).reject{|entry| entry =~ /^\./}.sort_by{|pn| -pn.size}
 
 # ...and for each page:
 page_names.each do |page_name|
@@ -51,7 +50,7 @@ page_names.each do |page_name|
     Dir.mkdir(target_dir+escape(page_name))
     template = IO.read(template_file)
 
-    log = `git log c97d9481ab64^.. --pretty=format:'### %s <small><a href="#%h" name="%h">%ad</a></small>%n%b' --date=short`
+    log = `git log --pretty=format:'### %s <small><a href="#%h" name="%h">%ad</a></small>%n%b' --date=short`
 
     open(target_filename, "w") do |file|
         content = IO.read(source_filename)
@@ -66,13 +65,24 @@ page_names.each do |page_name|
 
         content.sub!(/LOG/, log)
 
-        # [Links] to [Links](/links/)
-        content.gsub!(/\[[^\]]*\]/) do |link|
-            page = link[1..-2]
-            if page_names.include? page
-                "#{link}(/#{escape(page)}/)"
-            else
-                link
+        if autolinks
+            page_names.each do |p|
+                p p
+                content.gsub!(/(#{p})([a-zA-ZäüöÄÜÖß]?)/) do
+                    pn = Regexp.last_match[1]
+                    letter = Regexp.last_match[2]
+                    "[#{pn}#{letter}](/#{escape(pn)}/)"
+                end
+            end
+        else
+            # [Links] to [Links](/links/)
+            content.gsub!(/\[[^\]]*\]/) do |link|
+                page = link[1..-2]
+                if page_names.include? page
+                    "[#{link}](/#{escape(page)}/)"
+                else
+                    link
+                end
             end
         end
 
