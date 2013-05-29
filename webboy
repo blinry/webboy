@@ -67,7 +67,6 @@ page_names.each do |page_name|
 
         if autolinks
             page_names.each do |p|
-                p p
                 content.gsub!(/(#{p})([a-zA-ZäüöÄÜÖß]?)/) do
                     pn = Regexp.last_match[1]
                     letter = Regexp.last_match[2]
@@ -90,7 +89,7 @@ page_names.each do |page_name|
 
         template.sub!(/CONTENT/, content)
         template.gsub!(/TITLE/, page_name)
-        template.gsub!(/MTIME/, `git log -1 --format="%cd" --date=short -- "#{source_filename}"`)
+        #template.gsub!(/MTIME/, `git log -1 --format="%cd" --date=short -- "#{source_filename}"`)
 
         file.write template
     end
