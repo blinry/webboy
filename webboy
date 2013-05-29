@@ -16,7 +16,7 @@ opts = Trollop::options do
 Options:
     EOS
     opt :input, "Directory containing the wiki pages", :short => "i", :type => :string
-    opt :output, "Output directory", :short => "o", :type => :string
+    opt :output, "Output directory (will be OVERWRITTEN!)", :short => "o", :type => :string
     opt :template, "HTML template to use", :short => "t", :default => File.dirname(__FILE__)+"/template.html"
     opt :static, "Static files to copy into output dir", :short => "s", :type => :string
     opt :main, "Name of the starting page", :short => "m", :type => :string
